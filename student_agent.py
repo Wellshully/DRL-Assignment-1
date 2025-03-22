@@ -25,6 +25,10 @@ def make_discrete_key(obs):
     return tuple(obs)
 
 def get_action(obs):
+    obstacle_north = obs[10]  # for action 1 (Move North)
+    obstacle_south = obs[11]  # for action 0 (Move South)
+    obstacle_east  = obs[12]  # for action 2 (Move East)
+    obstacle_west  = obs[13]  # for action 3 (Move West)
     """
     This function MUST return an integer action in [0..5].
 
@@ -34,10 +38,34 @@ def get_action(obs):
     """
     
     state_key = make_discrete_key(obs)
-
+    def is_blocked(action, obs):
+        if action == 0:  # Move South
+            return obs[11] == 1
+        elif action == 1:  # Move North
+            return obs[10] == 1
+        elif action == 2:  # Move East
+            return obs[12] == 1
+        elif action == 3:  # Move West
+            return obs[13] == 1
+        return False  # Actions 4 and 5 are not movement actions.
     if state_key in Q_TABLE:
         q_values = Q_TABLE[state_key]
-        return int(np.argmax(q_values))
+        act= int(np.argmax(q_values))
+        if act in [0, 1, 2, 3] and is_blocked(act, obs):
+            safe_actions = []
+            for action in [0, 1, 2, 3]:
+                if not is_blocked(action, obs):
+                    safe_actions.append(action)
+           
+            safe_actions.extend([4, 5])
+            
+            act = max(safe_actions, key=lambda a: q_values[a])
+        
+        return act
     else:
-        # Fallback (unseen state) -> random
-        return random.choice([0, 1, 2, 3, 4, 5])
+        safe_actions = []
+        for action in [0, 1, 2, 3]:
+            if not is_blocked(action, obs):
+                safe_actions.append(action)
+        safe_actions.extend([4, 5])
+        return random.choice(safe_actions)
