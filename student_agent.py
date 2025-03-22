@@ -5,9 +5,10 @@ import os
 import numpy as np
 import random
 
-# Try to load Q-table from pickle
+
+
 Q_TABLE = {}
-q_table_filename = "q_table.pkl"
+q_table_filename = "q_table_rule.pkl"
 
 if os.path.exists(q_table_filename):
     with open(q_table_filename, "rb") as f:
