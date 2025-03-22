@@ -1,18 +1,43 @@
-# Remember to adjust your student ID in meta.xml
-import numpy as np
+# Filename: student_agent.py
+
 import pickle
+import os
+import numpy as np
 import random
-import gym
+
+# Try to load Q-table from pickle
+Q_TABLE = {}
+q_table_filename = "q_table.pkl"
+
+if os.path.exists(q_table_filename):
+    with open(q_table_filename, "rb") as f:
+        Q_TABLE = pickle.load(f)
+else:
+    # If Q-table file isn't found, we can keep Q_TABLE empty 
+    # and fallback to random actions (or any default).
+    Q_TABLE = {}
+
+def make_discrete_key(obs):
+    """
+    Convert environment's observation to a discrete dict key.
+    Must match the encoding used during training!
+    """
+    return tuple(obs)
 
 def get_action(obs):
+    """
+    This function MUST return an integer action in [0..5].
+
+    1) Convert obs to a key
+    2) If key is in Q_TABLE, pick the best action
+    3) Otherwise, fallback to random
+    """
     
-    # TODO: Train your own agent
-    # HINT: If you're using a Q-table, consider designing a custom key based on `obs` to store useful information.
-    # NOTE: Keep in mind that your Q-table may not cover all possible states in the testing environment.
-    #       To prevent crashes, implement a fallback strategy for missing keys. 
-    #       Otherwise, even if your agent performs well in training, it may fail during testing.
+    state_key = make_discrete_key(obs)
 
-
-    return random.choice([0, 1, 2, 3, 4, 5]) # Choose a random action
-    # You can submit this random agent to evaluate the performance of a purely random strategy.
-
+    if state_key in Q_TABLE:
+        q_values = Q_TABLE[state_key]
+        return int(np.argmax(q_values))
+    else:
+        # Fallback (unseen state) -> random
+        return random.choice([0, 1, 2, 3, 4, 5])
