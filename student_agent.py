@@ -2,7 +2,7 @@ import pickle
 import os
 import numpy as np
 import random
-
+from collections import defaultdict
 Q_TABLE = {}
 q_table_filename = "q_table.pkl"
 
@@ -20,9 +20,16 @@ visited_stations = set()
 def make_discrete_key(obs):
     return tuple(obs)
 
+action_memory = {
+    'find_passenger': defaultdict(set),
+    'go_to_destination': defaultdict(set)
+}
 
-
-def move_toward(taxi_row, taxi_col, target, obstacle_flags, closer_move_prob=0.6):
+def move_toward(taxi_row, taxi_col, target, obstacle_flags, closer_move_prob=0.8, used_action_penalty=0.01):
+    global CARRYING
+    carrying = CARRYING
+    state_key = 'go_to_destination' if carrying else 'find_passenger'
+   
     obstacle_north, obstacle_south, obstacle_east, obstacle_west = obstacle_flags
     target_row, target_col = target
 
@@ -59,25 +66,36 @@ def move_toward(taxi_row, taxi_col, target, obstacle_flags, closer_move_prob=0.6
         else:
             non_closer_moves.append(action)
 
-    # Step 3: Choose probabilistically
-    if closer_moves and non_closer_moves:
-        # Assign probabilities
-        prob_dist = []
-        closer_weight = closer_move_prob / len(closer_moves)
-        non_closer_weight = (1 - closer_move_prob) / len(non_closer_moves)
+    # Step 3: Assign initial probabilities
+    prob_dist = []
+    moves_considered = safe_moves  # all safe moves
+    for action in moves_considered:
+        if action in closer_moves:
+            prob_dist.append(closer_move_prob)
+        else:
+            prob_dist.append(1 - closer_move_prob)
 
-        for action in safe_moves:
-            if action in closer_moves:
-                prob_dist.append(closer_weight)
-            else:
-                prob_dist.append(non_closer_weight)
+    # Step 4: Adjust probabilities for actions used previously
+    position_key = (taxi_row, taxi_col)
+    actions_used_here = action_memory[state_key][position_key]
 
-        chosen_action = random.choices(safe_moves, weights=prob_dist, k=1)[0]
+    for idx, action in enumerate(moves_considered):
+        if action in actions_used_here:
+            prob_dist[idx] *= used_action_penalty  
+            print("PENNNNNNNNNNNNNNNNNNNNNNNNNN")
 
-    elif closer_moves:
-        chosen_action = random.choice(closer_moves)
+    # Normalize probabilities
+    total_prob = sum(prob_dist)
+    if total_prob == 0:
+        prob_dist = [1 / len(prob_dist)] * len(prob_dist)  # uniform if all penalties zero out
     else:
-        chosen_action = random.choice(non_closer_moves)
+        prob_dist = [p / total_prob for p in prob_dist]
+
+    # Step 5: Choose action based on adjusted probabilities
+    chosen_action = random.choices(moves_considered, weights=prob_dist, k=1)[0]
+
+    # Step 6: Record chosen action
+    action_memory[state_key][position_key].add(chosen_action)
 
     return chosen_action
 
