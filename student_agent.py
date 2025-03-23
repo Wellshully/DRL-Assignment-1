@@ -20,27 +20,66 @@ visited_stations = set()
 def make_discrete_key(obs):
     return tuple(obs)
 
-def move_toward(taxi_row, taxi_col, target, obstacle_flags):
+
+
+def move_toward(taxi_row, taxi_col, target, obstacle_flags, closer_move_prob=0.6):
     obstacle_north, obstacle_south, obstacle_east, obstacle_west = obstacle_flags
     target_row, target_col = target
-    d_row = target_row - taxi_row
-    d_col = target_col - taxi_col
 
-    actions = []
-    if d_row < 0 and not obstacle_north:
-        actions.append(1)  # North
-    if d_row > 0 and not obstacle_south:
-        actions.append(0)  # South
-    if d_col > 0 and not obstacle_east:
-        actions.append(2)  # East
-    if d_col < 0 and not obstacle_west:
-        actions.append(3)  # West
+    current_dist = abs(target_row - taxi_row) + abs(target_col - taxi_col)
 
-    if actions:
-        return random.choice(actions)
+    action_to_pos = {
+        0: (taxi_row + 1, taxi_col),  # South
+        1: (taxi_row - 1, taxi_col),  # North
+        2: (taxi_row, taxi_col + 1),  # East
+        3: (taxi_row, taxi_col - 1),  # West
+    }
 
-    safe_moves = [a for a, blocked in zip([0,1,2,3], obstacle_flags) if not blocked]
-    return random.choice(safe_moves) if safe_moves else random.randint(0, 3)
+    # Step 1: Find all safe moves
+    safe_moves = []
+    for action, (new_row, new_col) in action_to_pos.items():
+        if (action == 0 and obstacle_south) or \
+           (action == 1 and obstacle_north) or \
+           (action == 2 and obstacle_east) or \
+           (action == 3 and obstacle_west):
+            continue  # Skip blocked moves
+        safe_moves.append(action)
+
+    if not safe_moves:
+        return random.randint(0, 3)  # no safe moves, choose random
+
+    # Step 2: Classify moves into closer and non-closer
+    closer_moves = []
+    non_closer_moves = []
+    for action in safe_moves:
+        new_row, new_col = action_to_pos[action]
+        new_dist = abs(target_row - new_row) + abs(target_col - new_col)
+        if new_dist < current_dist:
+            closer_moves.append(action)
+        else:
+            non_closer_moves.append(action)
+
+    # Step 3: Choose probabilistically
+    if closer_moves and non_closer_moves:
+        # Assign probabilities
+        prob_dist = []
+        closer_weight = closer_move_prob / len(closer_moves)
+        non_closer_weight = (1 - closer_move_prob) / len(non_closer_moves)
+
+        for action in safe_moves:
+            if action in closer_moves:
+                prob_dist.append(closer_weight)
+            else:
+                prob_dist.append(non_closer_weight)
+
+        chosen_action = random.choices(safe_moves, weights=prob_dist, k=1)[0]
+
+    elif closer_moves:
+        chosen_action = random.choice(closer_moves)
+    else:
+        chosen_action = random.choice(non_closer_moves)
+
+    return chosen_action
 
 def get_action(obs):
     global CARRYING, passenger_station, destination_station, visited_stations
